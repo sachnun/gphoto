@@ -2,6 +2,9 @@
 
 Google Photos CLI. Uploads originals without using storage quota.
 
+> [!WARNING]
+> Unofficial and unaffiliated with Google. It talks to the Photos mobile API outside the official app, which breaks the terms of service; Google can flag, restrict, or suspend the account you use it with. Try it on a throwaway account first.
+
 ## Install
 
 The package is not on npm. Install from GitHub with Bun; `npx gphoto` runs an unrelated registry package and the entry point is TypeScript.
