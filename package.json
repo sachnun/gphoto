@@ -1,7 +1,7 @@
 {
   "name": "gphoto",
   "version": "0.1.0",
-  "description": "Google Photos CLI with unlimited original-quality uploads (Pixel spoof), TypeScript + Bun",
+  "description": "Google Photos CLI",
   "type": "module",
   "bin": {
     "gphoto": "./src/main.ts"
@@ -31,9 +31,9 @@
   "keywords": [
     "google-photos",
     "cli",
-    "bun",
+    "photos",
     "upload",
-    "photos"
+    "download"
   ],
   "dependencies": {
     "citty": "^0.2.2"
