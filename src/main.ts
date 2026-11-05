@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import "./lib/color-mode.ts";
 import { command } from "./cli/command.ts";
+import { packageDescription, packageName, packageVersion } from "./lib/pkg.ts";
 import { runCli } from "./cli/run.ts";
 import { albumCommand } from "./commands/album.ts";
 import { downloadCommand } from "./commands/download.ts";
@@ -14,9 +15,9 @@ import { logoutCommand, whoamiCommand } from "./commands/whoami.ts";
 
 const root = command({
   meta: {
-    name: "gphoto",
-    version: "0.1.0",
-    description: "Google Photos CLI with unlimited original-quality upload",
+    name: packageName,
+    version: packageVersion,
+    description: packageDescription,
   },
   subCommands: {
     login: loginCommand,
@@ -32,11 +33,11 @@ const root = command({
   },
 }, {
   examples: [
-    "gphoto login",
-    "gphoto upload ./anime/ -r --album \"Aho Girl\" --threads 4",
-    "gphoto ls --videos",
-    "gphoto watch \"Aho Girl\"",
-    "gphoto quota",
+    `${packageName} login`,
+    `${packageName} upload ./anime/ -r --album "Aho Girl" --threads 4`,
+    `${packageName} ls --videos`,
+    `${packageName} watch "Aho Girl"`,
+    `${packageName} quota`,
   ],
 });
 

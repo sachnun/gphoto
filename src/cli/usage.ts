@@ -1,8 +1,7 @@
 import type { ArgDef, ArgsDef, CommandDef } from "citty";
 import { aliases, resolveValue, type CommandOptions } from "./command.ts";
 import { bold, cyan, dim } from "../lib/ui.ts";
-
-const VERSION = "0.1.0";
+import { packageName, packageVersion } from "../lib/pkg.ts";
 
 export interface ResolvedNode {
   cmd: CommandDef;
@@ -101,7 +100,7 @@ export async function resolveNode(root: CommandDef, path: string[]): Promise<Res
 export async function renderHelp(node: ResolvedNode, root?: CommandDef): Promise<string> {
   const rootCmd = root ?? node.cmd;
   const rootMeta = (await resolveValue(rootCmd.meta)) ?? {};
-  const rootName = rootMeta.name ?? "gphoto";
+  const rootName = rootMeta.name ?? packageName;
   const rootExamples = options(rootCmd).examples ?? [];
 
   const meta = (await resolveValue(node.cmd.meta)) ?? {};
@@ -114,7 +113,7 @@ export async function renderHelp(node: ResolvedNode, root?: CommandDef): Promise
   const lines: string[] = [];
 
   const heading = isRoot
-    ? `${bold(rootName)} ${dim(`v${meta.version ?? VERSION}`)} — ${meta.description ?? ""}`
+    ? `${bold(rootName)} ${dim(`v${meta.version ?? packageVersion}`)} — ${meta.description ?? ""}`
     : `${bold(name)} ${dim("—")} ${meta.description ?? ""}`;
   lines.push(heading, "");
 
@@ -141,5 +140,5 @@ export async function renderHelp(node: ResolvedNode, root?: CommandDef): Promise
 
 export async function renderVersion(root: CommandDef): Promise<string> {
   const meta = (await resolveValue(root.meta)) ?? {};
-  return `${meta.version ?? VERSION}\n`;
+  return `${meta.version ?? packageVersion}\n`;
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { defineCommand, type CommandDef } from "citty";
 import { renderHelp, renderVersion, resolveNode } from "../../src/cli/usage.ts";
+import { packageVersion } from "../../src/lib/pkg.ts";
 import { runCli } from "../../src/cli/run.ts";
 
 const leaf = defineCommand({
@@ -127,7 +128,7 @@ describe("renderVersion", () => {
 
   test("falls back to the package version", async () => {
     const bare = defineCommand({ meta: { name: "bare" }, run() {} });
-    expect(await renderVersion(bare)).toBe("0.1.0\n");
+    expect(await renderVersion(bare)).toBe(`${packageVersion}\n`);
   });
 });
 
