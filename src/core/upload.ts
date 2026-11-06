@@ -92,7 +92,10 @@ async function uploadOne(path: string, options: UploadOptions): Promise<UploadRe
 
     emit("uploading", 0, info.size);
     const uploadToken = await options.api.getUploadToken(hashed.base64, info.size);
-    const uploadResponse = await options.api.uploadFile(Bun.file(absolute), uploadToken);
+    const uploadResponse = await options.api.uploadFile(Bun.file(absolute), uploadToken, {
+      size: info.size,
+      onProgress: (sent, total) => emit("uploading", sent, total),
+    });
 
     emit("finalizing", info.size, info.size);
     const mediaKey = await options.api.commitUpload({

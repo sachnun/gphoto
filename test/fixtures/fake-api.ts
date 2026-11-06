@@ -50,8 +50,15 @@ export class FakePhotosApi {
     return this.uploadToken;
   }
 
-  async uploadFile(file: Blob | Uint8Array, uploadToken: string): Promise<Uint8Array> {
+  async uploadFile(
+    file: Blob | Uint8Array,
+    uploadToken: string,
+    options: { size?: number; onProgress?: (bytesSent: number, bytesTotal: number) => void } = {},
+  ): Promise<Uint8Array> {
     this.record("uploadFile", file, uploadToken);
+    const total = options.size ?? (file instanceof Blob ? file.size : file.byteLength);
+    options.onProgress?.(Math.floor(total / 2), total);
+    options.onProgress?.(total, total);
     return new Uint8Array([1, 2, 3]);
   }
 

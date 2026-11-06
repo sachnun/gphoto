@@ -137,16 +137,26 @@ export class PhotosApi {
     return uploadId;
   }
 
-  async uploadFile(file: Blob | Uint8Array, uploadToken: string): Promise<Uint8Array> {
+  async uploadFile(
+    file: Blob | Uint8Array | ReadableStream<Uint8Array>,
+    uploadToken: string,
+    options: { size?: number; onProgress?: (bytesSent: number, bytesTotal: number) => void } = {},
+  ): Promise<Uint8Array> {
+    const size = options.size ?? (file instanceof Blob ? file.size : file instanceof Uint8Array ? file.byteLength : 0);
+    const source = file instanceof Blob ? file.stream() : file instanceof Uint8Array ? singleChunk(file) : file;
+    const body = options.onProgress && size > 0 ? countingStream(source, size, options.onProgress) : source;
+    const headers: Record<string, string> = {
+      "Accept-Encoding": "gzip",
+      "Accept-Language": this.language,
+      "User-Agent": this.userAgent,
+      Authorization: `Bearer ${await this.bearer()}`,
+    };
+    if (body instanceof ReadableStream && size > 0) headers["Content-Length"] = String(size);
+    if (file instanceof Blob && file.type) headers["Content-Type"] = file.type;
     const response = await request(`${UPLOAD_BASE}?upload_id=${encodeURIComponent(uploadToken)}`, {
       method: "PUT",
-      headers: {
-        "Accept-Encoding": "gzip",
-        "Accept-Language": this.language,
-        "User-Agent": this.userAgent,
-        Authorization: `Bearer ${await this.bearer()}`,
-      },
-      body: file,
+      headers,
+      body,
       timeoutMs: Math.max(this.timeoutMs, 600_000),
       proxy: this.proxy,
     });
@@ -422,4 +432,37 @@ function collectUrls(node: unknown, out: string[] = []): string[] {
 
 export function dedupKeyFromHash(sha1Base64: string): string {
   return toUrlSafeBase64(sha1Base64);
+}
+
+function singleChunk(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+function countingStream(
+  source: ReadableStream<Uint8Array>,
+  total: number,
+  onProgress: (bytesSent: number, bytesTotal: number) => void,
+): ReadableStream<Uint8Array> {
+  const reader = source.getReader();
+  let sent = 0;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { value, done } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+      sent += value.length;
+      onProgress(Math.min(sent, total), total);
+      controller.enqueue(value);
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
 }

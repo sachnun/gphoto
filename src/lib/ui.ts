@@ -18,6 +18,11 @@ export function humanBytes(bytes: number): string {
   return `${value.toFixed(index === 0 ? 0 : value >= 100 ? 0 : 1)} ${units[index]}`;
 }
 
+export function humanSpeed(bytesPerSecond: number): string {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return "0 B/s";
+  return `${humanBytes(bytesPerSecond)}/s`;
+}
+
 export function humanDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return "0:00";
   const totalSeconds = Math.round(ms / 1000);
@@ -77,6 +82,27 @@ export function progressBar(done: number, total: number, width = 24): string {
   const bar = `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
   const percent = String(Math.round(ratio * 100)).padStart(3);
   return `${cyan(bar)} ${percent}%`;
+}
+
+export interface ProgressLineOptions {
+  done: number;
+  total: number;
+  bytesPerSecond: number;
+  label?: string;
+  width?: number;
+}
+
+export function progressLine(options: ProgressLineOptions): string {
+  const { done, total, bytesPerSecond, label, width = 24 } = options;
+  const parts = [
+    progressBar(done, total, width),
+    dim(`${humanBytes(done)}/${humanBytes(total)}`),
+    cyan(humanSpeed(bytesPerSecond)),
+  ];
+  const remaining = Math.max(0, total - done);
+  if (bytesPerSecond > 0 && remaining > 0) parts.push(dim(`ETA ${humanDuration((remaining / bytesPerSecond) * 1000)}`));
+  if (label) parts.push(dim(label));
+  return parts.join(" ");
 }
 
 export function fail(message: string): never {

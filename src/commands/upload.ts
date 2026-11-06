@@ -6,7 +6,8 @@ import { attachToAlbum, uploadFiles, type ProgressEvent, type UploadResult } fro
 import { createApi } from "../cli/api-factory.ts";
 import { authDataArg, proxyArg } from "../cli/common.ts";
 import { command, int, str } from "../cli/command.ts";
-import { bold, dim, fail, green, humanBytes, progressBar, red, table, yellow } from "../lib/ui.ts";
+import { UploadProgress } from "../lib/progress.ts";
+import { bold, dim, fail, green, humanBytes, progressLine, red, table, yellow } from "../lib/ui.ts";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".bmp", ".tif", ".tiff", ".avif", ".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef", ".srw", ".sr2", ".3fr", ".erf", ".k25", ".kdc", ".mrw", ".x3f", ".raw"]);
 const VIDEO_EXT = new Set([".mp4", ".mov", ".mkv", ".avi", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".mts", ".m2ts", ".ts", ".ogv"]);
@@ -104,17 +105,33 @@ export const uploadCommand = command(
 
       process.stderr.write(`${dim("account")} ${auth.email}  ${dim("files")} ${files.length}  ${dim("threads")} ${threads}\n`);
 
-      const totals = new Map<string, { done: number; total: number }>();
+      const totalBytes = (
+        await Promise.all(files.map((file) => stat(file).then((info) => info.size).catch(() => 0)))
+      ).reduce((sum, size) => sum + size, 0);
+      const tracker = new UploadProgress(totalBytes);
+      const renderIntervalMs = 100;
+      let lastRender = 0;
       const onProgress = (event: ProgressEvent): void => {
+        const snapshot = tracker.update(event);
+        const terminal = event.phase === "complete" || event.phase === "skipped" || event.phase === "error";
+        const now = Date.now();
         if (jsonMode) {
-          process.stderr.write(`${JSON.stringify(event)}\n`);
+          if (!terminal && now - lastRender < renderIntervalMs) return;
+          lastRender = now;
+          process.stderr.write(`${JSON.stringify({ ...event, bytesPerSecond: Math.round(snapshot.bytesPerSecond) })}\n`);
           return;
         }
         if (!showProgress) return;
-        totals.set(event.path, { done: event.bytesCompleted, total: event.bytesTotal });
-        const overallDone = [...totals.values()].reduce((sum, entry) => sum + entry.done, 0);
-        const overallTotal = [...totals.values()].reduce((sum, entry) => sum + entry.total, 0);
-        process.stderr.write(`\r\x1b[2K${progressBar(overallDone, overallTotal)} ${dim(event.filename.slice(0, 40))}`);
+        if (!terminal && now - lastRender < renderIntervalMs) return;
+        lastRender = now;
+        const columns = process.stderr.columns ?? 100;
+        const budget = Math.max(0, columns - 62);
+        const name = budget > 8 ? event.filename.slice(0, budget) : "";
+        const label = `${snapshot.completed}/${files.length} ${event.phase}${name ? ` ${name}` : ""}`;
+        process.stderr.write(
+          `\r\x1b[2K${progressLine({ done: snapshot.done, total: snapshot.total, bytesPerSecond: snapshot.bytesPerSecond, label })}`,
+        );
+        if (event.phase === "error") process.stderr.write("\n");
       };
 
       const started = Date.now();
@@ -163,7 +180,9 @@ export const uploadCommand = command(
       const failed = results.filter((result) => result.error);
       const skipped = results.filter((result) => result.skipped);
       const bytes = uploaded.reduce((sum, result) => sum + result.size, 0);
-      const seconds = ((Date.now() - started) / 1000).toFixed(1);
+      const elapsedMs = Date.now() - started;
+      const seconds = (elapsedMs / 1000).toFixed(1);
+      const averageSpeed = elapsedMs > 0 ? bytes / (elapsedMs / 1000) : 0;
 
       process.stdout.write(
         `\n${table(
@@ -173,6 +192,7 @@ export const uploadCommand = command(
             [failed.length ? red("failed") : dim("failed"), String(failed.length)],
             ["bytes", humanBytes(bytes)],
             ["elapsed", `${seconds}s`],
+            ["speed", `${humanBytes(averageSpeed)}/s`],
           ],
           ["result", "count"],
         )}\n`,

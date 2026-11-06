@@ -34,8 +34,26 @@ describe("uploadFiles", () => {
       expect(results[0]!.mediaKey).toBe("KEY_a.jpg");
       expect(results[0]!.skipped).toBe(false);
       expect(results[0]!.error).toBeUndefined();
-      expect(phases).toEqual(["hashing", "hashing", "checking", "uploading", "finalizing", "complete"]);
+      expect(phases).toEqual(["hashing", "hashing", "checking", "uploading", "uploading", "uploading", "finalizing", "complete"]);
       expect(api.callsTo("commitUpload")[0]!.args[0]).toMatchObject({ fileName: "a.jpg", quality: "original", model: "Pixel XL" });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("reports upload byte progress", async () => {
+    const { files, cleanup } = await withFiles(["a.jpg"], "hello world");
+    try {
+      const events: { phase: string; bytesCompleted: number; bytesTotal: number }[] = [];
+      await uploadFiles({
+        api: new FakePhotosApi() as unknown as PhotosApi,
+        files,
+        onProgress: (event) => events.push(event),
+      });
+      const uploading = events.filter((event) => event.phase === "uploading");
+      expect(uploading.length).toBeGreaterThan(1);
+      expect(uploading.at(-1)).toMatchObject({ bytesCompleted: 11, bytesTotal: 11 });
+      expect(uploading.map((event) => event.bytesCompleted)).toEqual([...uploading.map((event) => event.bytesCompleted)].sort((a, b) => a - b));
     } finally {
       await cleanup();
     }

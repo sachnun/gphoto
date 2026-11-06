@@ -128,6 +128,26 @@ describe("uploadFile", () => {
     routes.push({ match: (url) => url.includes("upload_id="), respond: () => new Response("nope", { status: 400 }) });
     await expect(api.uploadFile(new Uint8Array(), "t")).rejects.toThrow("upload file failed");
   });
+
+  test("reports bytes sent and sets the content length", async () => {
+    const api = makeApi();
+    routes.push({ match: (url) => url.includes("upload_id="), respond: () => protobufResponse(new Uint8Array()) });
+    const progress: number[] = [];
+    const file = Bun.file("package.json");
+    await api.uploadFile(file, "t", { size: file.size, onProgress: (sent) => progress.push(sent) });
+    const init = requests.at(-1)!.init;
+    expect((init.headers as Record<string, string>)['Content-Length']).toBe(String(file.size));
+    expect(progress.at(-1)).toBe(file.size);
+    expect(progress.length).toBeGreaterThan(0);
+  });
+
+  test("streams a plain byte array without a progress callback", async () => {
+    const api = makeApi();
+    routes.push({ match: (url) => url.includes("upload_id="), respond: () => protobufResponse(new Uint8Array([9])) });
+    const bytes = await api.uploadFile(new Uint8Array([1, 2, 3]), "t");
+    expect(Array.from(bytes)).toEqual([9]);
+    expect((requests.at(-1)!.init.headers as Record<string, string>)['Content-Length']).toBe("3");
+  });
 });
 
 describe("findRemoteMediaByHash", () => {

@@ -1,7 +1,7 @@
 export interface HttpOptions {
   method?: string;
   headers?: Record<string, string>;
-  body?: Uint8Array | string | Blob;
+  body?: Uint8Array | string | Blob | ReadableStream<Uint8Array>;
   timeoutMs?: number;
   proxy?: string;
 }
